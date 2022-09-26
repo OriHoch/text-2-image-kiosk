@@ -1,0 +1,118 @@
+- name: copy tmp files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/tmp/{{ item | basename }}"
+  loop:
+    - "{{ nvidia_driver_deb_file }}"
+    - "{{ cuda_keyring_deb_file }}"
+    - requirements-sd.txt
+    - requirements-sd-api.txt
+- name: install packages
+  become: yes
+  become_user: root
+  ansible.builtin.apt:
+    name:
+    - python3-pip
+    - python-is-python3
+    - python3.10-venv
+    update_cache: yes
+- name: install tmp deb files
+  become: yes
+  become_user: root
+  ansible.builtin.apt:
+    deb: "/tmp/{{ item | basename }}"
+  loop:
+    - "{{ cuda_keyring_deb_file }}"
+    - "{{ nvidia_driver_deb_file }}"
+- name: install cuda
+  become: yes
+  become_user: root
+  ansible.builtin.apt:
+    name: cuda
+    update_cache: yes
+- name: clone stable diffusion
+  ansible.builtin.git:
+    repo: https://github.com/CompVis/stable-diffusion.git
+    dest: /home/ubuntu/stable-diffusion
+    version: 69ae4b35e0a0f6ee1af8bb9a5d0016ccb27e36dc
+    depth: 1
+- name: create stable diffusion venv and install requirements
+  ansible.builtin.pip:
+    requirements: /tmp/requirements-sd.txt
+    virtualenv: venv
+    chdir: /home/ubuntu/stable-diffusion
+- name: copy stable diffusion model
+  ansible.builtin.copy:
+    src: "{{ sd_ckpt_file }}"
+    dest: /home/ubuntu/stable-diffusion/sd-v1-4.ckpt
+- name: install stable diffusion api requirements
+  ansible.builtin.pip:
+    requirements: /tmp/requirements-sd-api.txt
+    virtualenv: venv
+    chdir: /home/ubuntu/stable-diffusion
+- name: copy sd_api.py
+  ansible.builtin.copy:
+    src: sd_api.py
+    dest: /home/ubuntu/stable-diffusion/ldm/sd_api.py
+- name: copy sd_api.sh
+  ansible.builtin.copy:
+    src: sd_api.sh
+    dest: /home/ubuntu/sd_api.sh
+    mode: 0755
+- name: copy sd_api config file
+  ansible.builtin.copy:
+      src: "{{ sd_api_config_json_file }}"
+      dest: /home/ubuntu/sd-api-config.json
+      mode: 0600
+- name: create sd_api systemd service
+  become: yes
+  become_user: root
+  ansible.builtin.copy:
+    src: sd_api.service
+    dest: /etc/systemd/system/sd_api.service
+- name: enable and start sd_api systemd service
+  become: yes
+  become_user: root
+  ansible.builtin.systemd:
+    name: sd_api
+    enabled: yes
+    state: restarted
+- name: install nginx
+  become: yes
+  become_user: root
+  ansible.builtin.apt:
+    name: nginx
+    update_cache: yes
+- name: copy nginx site config
+  become: yes
+  become_user: root
+  ansible.builtin.copy:
+      src: nginx_site.conf
+      dest: /etc/nginx/sites-enabled/default
+- name: enable and restart nginx
+  become: yes
+  become_user: root
+  ansible.builtin.service:
+    name: nginx
+    state: restarted
+    enabled: yes
+- name: mount instance volume disk
+  become: yes
+  become_user: root
+  ansible.builtin.shell:
+    cmd: |
+      mkfs.xfs -f /dev/nvme1n1 &&\
+      mkdir -p /var/www/sd &&\
+      echo "$(blkid -o export /dev/nvme1n1 | grep ^UUID=) /var/www/sd xfs defaults,noatime" | tee -a /etc/fstab &&\
+      mount -a &&\
+      touch /var/www/sd/created
+    creates: /var/www/sd/created
+- name: create sd output directory
+  become: yes
+  become_user: root
+  ansible.builtin.shell:
+    cmd: |
+      mkdir -p /var/www/sd/output &&\
+      chown -R ubuntu:ubuntu /var/www/sd/output &&\
+      chmod -R 0777 /var/www/sd/output
+    creates: /var/www/sd/output

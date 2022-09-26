@@ -1,0 +1,14 @@
+# download from https://www.nvidia.com/Download/Find.aspx
+# Product Type: Data Center / Tesla
+# Product Series: T-Series
+# Product: Tesla T4
+# Operating System: Linux 64-bit Ubuntu 22.04
+# CUDA Toolkit: 11.7
+nvidia_driver_deb_file: .ansible/nvidia-driver-local-repo-ubuntu2204-515.65.01_1.0-1_amd64.deb
+# download from https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
+cuda_keyring_deb_file: .ansible/cuda-keyring_1.0-1_all.deb
+# download from https://huggingface.co/CompVis/stable-diffusion-v-1-4-original/tree/6647636e3f542cc0b06fb71d1aff7357ac45d303
+sd_ckpt_file: .ansible/sd-v1-4.ckpt
+# Create the file with following content, setting values as needed:
+# {"username": "", "password": "", "sd_output_base_url": ""}
+sd_api_config_json_file: .ansible/sd_api_config.json

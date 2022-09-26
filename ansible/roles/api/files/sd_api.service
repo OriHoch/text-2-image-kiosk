@@ -1,0 +1,7 @@
+[Unit]
+Description=Stable Diffusion API
+
+[Service]
+ExecStart=/home/ubuntu/sd_api.sh
+Restart=on-failure
+User=ubuntu

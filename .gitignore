@@ -1,0 +1,7 @@
+venv
+.idea
+.terraform
+terraform.tfstate*
+.env
+.ansible
+__pycache__
