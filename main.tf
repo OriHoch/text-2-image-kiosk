@@ -4,8 +4,10 @@ locals {
   name = "text-2-image-kiosk"
   subnet_cidr_block = "172.31.0.0/20"
   subnet_availability_zone = "a"
-  # 4 vCPU, 1 GPU, 16 GB RAM, 125 GB instance volume
-  api_instance_type = "g4dn.xlarge"
+  # 4 vCPU, 16 GB RAM, 1 nvidia GPU 16 GB, 125 GB instance volume 0.587 USD per Hour can generate 512x512 images
+  # api_instance_type = "g4dn.xlarge"
+  # 4 vCPU, 16 GB RAM, 1 nvidia GPU 24 GB, 250 GB instance volume 1.123 USD per Hour can generate 1024x1024 images
+  api_instance_type = "g5.xlarge"
   # Canonical, Ubuntu, 22.04 LTS, amd64 jammy image build on 2022-09-12
   api_ami = "ami-096800910c1b781ba"
 }
@@ -118,17 +120,25 @@ resource "aws_instance" "api" {
   tenancy = "default"
 }
 
+resource "aws_eip" "api" {
+  vpc = true
+  instance = aws_instance.api.id
+  tags = {
+    Name = "${local.name}-api"
+  }
+}
+
 output "api_public_ip" {
-  value = aws_instance.api.public_ip
+  value = aws_eip.api.public_ip
 }
 
 output "ssh_command" {
-  value = "ssh ubuntu@${aws_instance.api.public_ip}"
+  value = "ssh ubuntu@${aws_eip.api.public_ip}"
 }
 
 resource "null_resource" "ansible_inventory" {
   triggers = {
-      api_public_ip = aws_instance.api.public_ip
+      api_public_ip = aws_eip.api.public_ip
   }
   provisioner "local-exec" {
       command = <<-EOT
@@ -137,7 +147,7 @@ resource "null_resource" "ansible_inventory" {
         virtualmachines:
           hosts:
             api:
-              ansible_host: ${aws_instance.api.public_ip}
+              ansible_host: ${aws_eip.api.public_ip}
               ansible_user: ubuntu
         " > .ansible/inventory.yaml
       EOT
@@ -155,7 +165,7 @@ data "cloudflare_zone" "main" {
 resource "cloudflare_record" "api" {
   zone_id = data.cloudflare_zone.main.id
   name = "t2ik-sd-api"
-  value = aws_instance.api.public_ip
+  value = aws_eip.api.public_ip
   type = "A"
   proxied = true
 }

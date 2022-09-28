@@ -1,3 +1,0 @@
-fastapi[all]==0.85.0
-starlette==0.20.4
-uvicorn==0.18.3
